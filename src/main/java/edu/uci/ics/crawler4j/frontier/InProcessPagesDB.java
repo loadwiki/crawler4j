@@ -51,6 +51,9 @@ public class InProcessPagesDB extends WorkQueues {
 
   public boolean removeURL(WebURL webUrl) {
     synchronized (mutex) {
+    	
+      long timestamp = System.currentTimeMillis();
+    	
       DatabaseEntry key = getDatabaseEntryKey(webUrl);
       DatabaseEntry value = new DatabaseEntry();
       Transaction txn = beginTransaction();
@@ -65,8 +68,14 @@ public class InProcessPagesDB extends WorkQueues {
         }
       } finally {
         commit(txn);
+        iotime += (System.currentTimeMillis()-timestamp);
       }
     }
     return false;
+  }
+  
+  public long getInProcessPagesDBIOTime()
+  {
+	  return iotime;
   }
 }

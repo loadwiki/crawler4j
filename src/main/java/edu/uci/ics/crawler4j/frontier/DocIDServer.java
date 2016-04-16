@@ -44,6 +44,8 @@ public class DocIDServer extends Configurable {
   private final Object mutex = new Object();
 
   private int lastDocID;
+  
+  private long iotime = 0;
 
   public DocIDServer(Environment env, CrawlConfig config) {
     super(config);
@@ -70,11 +72,14 @@ public class DocIDServer extends Configurable {
    */
   public int getDocId(String url) {
     synchronized (mutex) {
+    	    
       OperationStatus result = null;
       DatabaseEntry value = new DatabaseEntry();
       try {
         DatabaseEntry key = new DatabaseEntry(url.getBytes());
+        long timestamp = System.currentTimeMillis();
         result = docIDsDB.get(null, key, value, null);
+        iotime += (System.currentTimeMillis() - timestamp);
 
       } catch (Exception e) {
         logger.error("Exception thrown while getting DocID", e);
@@ -99,7 +104,9 @@ public class DocIDServer extends Configurable {
         }
 
         ++lastDocID;
+        long timestamp = System.currentTimeMillis();
         docIDsDB.put(null, new DatabaseEntry(url.getBytes()), new DatabaseEntry(Util.int2ByteArray(lastDocID)));
+        iotime += (System.currentTimeMillis() - timestamp);
         return lastDocID;
       } catch (Exception e) {
         logger.error("Exception thrown while getting new DocID", e);
@@ -122,7 +129,7 @@ public class DocIDServer extends Configurable {
         }
         throw new Exception("Doc id: " + prevDocid + " is already assigned to URL: " + url);
       }
-
+      
       docIDsDB.put(null, new DatabaseEntry(url.getBytes()), new DatabaseEntry(Util.int2ByteArray(docId)));
       lastDocID = docId;
     }
@@ -148,4 +155,10 @@ public class DocIDServer extends Configurable {
       logger.error("Exception thrown while closing DocIDServer", e);
     }
   }
+  
+  public long getdocServerIOTime()
+  {
+	  return iotime;
+  }
+  
 }

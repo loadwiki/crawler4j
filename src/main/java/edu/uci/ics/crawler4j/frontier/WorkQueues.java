@@ -43,6 +43,8 @@ public class WorkQueues {
   private final WebURLTupleBinding webURLBinding;
 
   protected final Object mutex = new Object();
+  
+  protected long iotime = 0;
 
   public WorkQueues(Environment env, String dbName, boolean resumable) {
     this.env = env;
@@ -129,11 +131,14 @@ public class WorkQueues {
   }
 
   public void put(WebURL url) {
+	  
+	long timestamp = System.currentTimeMillis();
     DatabaseEntry value = new DatabaseEntry();
     webURLBinding.objectToEntry(url, value);
     Transaction txn = beginTransaction();
     urlsDB.put(txn, getDatabaseEntryKey(url), value);
     commit(txn);
+    iotime += (System.currentTimeMillis()-timestamp);
   }
 
   public long getLength() {

@@ -198,4 +198,10 @@ public class Frontier extends Configurable {
       waitingList.notifyAll();
     }
   }
+  
+  public long getInProcessPagesDBIOTime()
+  {
+	  return inProcessPages.getInProcessPagesDBIOTime();
+  }
+  
 }

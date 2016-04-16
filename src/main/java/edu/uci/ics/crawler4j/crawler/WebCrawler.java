@@ -37,6 +37,7 @@ import edu.uci.ics.crawler4j.parser.ParseData;
 import edu.uci.ics.crawler4j.parser.Parser;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import edu.uci.ics.crawler4j.url.WebURL;
+import edu.uci.ics.crawler4j.crawler.stat.WebCrawlerStat;
 import uk.org.lidalia.slf4jext.Level;
 import uk.org.lidalia.slf4jext.Logger;
 import uk.org.lidalia.slf4jext.LoggerFactory;
@@ -92,6 +93,11 @@ public class WebCrawler implements Runnable {
    * The Frontier object that manages the crawl queue.
    */
   private Frontier frontier;
+  
+  /*
+  	The crawstat collects the statistic data of webcrawler instance. 
+  */
+  private WebCrawlerStat crawlstat = new WebCrawlerStat();
 
   /**
    * Is the current crawler instance waiting for new URLs? This field is
@@ -111,6 +117,8 @@ public class WebCrawler implements Runnable {
    */
   public void init(int id, CrawlController crawlController) {
     this.myId = id;
+    this.crawlstat.setID(id);
+    
     this.pageFetcher = crawlController.getPageFetcher();
     this.robotstxtServer = crawlController.getRobotstxtServer();
     this.docIdServer = crawlController.getDocIdServer();
@@ -118,6 +126,7 @@ public class WebCrawler implements Runnable {
     this.parser = new Parser(crawlController.getConfig());
     this.myController = crawlController;
     this.isWaitingForNewURLs = false;
+
   }
 
   /**
@@ -260,6 +269,11 @@ public class WebCrawler implements Runnable {
       isWaitingForNewURLs = false;
       if (assignedURLs.isEmpty()) {
         if (frontier.isFinished()) {
+          
+          logger.info("\tcrawler {} is finished,exectime",myId,crawlstat.getExecTime());
+          crawlstat.pLinkTypeTable();
+          crawlstat.pResultCode();
+          crawlstat.pNetworkTime();
           return;
         }
         try {
@@ -271,6 +285,11 @@ public class WebCrawler implements Runnable {
         for (WebURL curURL : assignedURLs) {
           if (myController.isShuttingDown()) {
             logger.info("Exiting because of controller shutdown.");
+            
+            crawlstat.pLinkTypeTable();
+            crawlstat.pResultCode();
+            crawlstat.pNetworkTime();
+            
             return;
           }
           if (curURL != null) {
@@ -319,12 +338,14 @@ public class WebCrawler implements Runnable {
       if (curURL == null) {
         throw new Exception("Failed processing a NULL url !?");
       }
-
+      
       fetchResult = pageFetcher.fetchPage(curURL);
+      
       int statusCode = fetchResult.getStatusCode();
       handlePageStatusCode(curURL, statusCode, EnglishReasonPhraseCatalog.INSTANCE
           .getReason(statusCode, Locale.ENGLISH)); // Finds the status reason for all known statuses
-
+      crawlstat.statResultCode(statusCode);
+      
       Page page = new Page(curURL);
       page.setFetchResponseHeaders(fetchResult.getResponseHeaders());
       page.setStatusCode(statusCode);
@@ -341,7 +362,7 @@ public class WebCrawler implements Runnable {
               throw new RedirectException(Level.WARN, "Unexpected error, URL: " + curURL + " is redirected to NOTHING");
             }
             page.setRedirectedToUrl(movedToUrl);
-
+            
             int newDocId = docIdServer.getDocId(movedToUrl);
             if (newDocId > 0) {
               throw new RedirectException(Level.DEBUG, "Redirect page: " + curURL + " is already seen");
@@ -355,7 +376,7 @@ public class WebCrawler implements Runnable {
             webURL.setDocid(-1);
             webURL.setAnchor(curURL.getAnchor());
             if (shouldVisit(page, webURL)) {
-              if (robotstxtServer.allows(webURL)) {
+              if (robotstxtServer.allows(webURL)) {            	  
                 webURL.setDocid(docIdServer.getNewDocID(movedToUrl));
                 frontier.schedule(webURL);
               } else {
@@ -375,7 +396,8 @@ public class WebCrawler implements Runnable {
 
       } else { // if status code is 200
         if (!curURL.getURL().equals(fetchResult.getFetchedUrl())) {
-          if (docIdServer.isSeenBefore(fetchResult.getFetchedUrl())) {
+        	 
+        	if (docIdServer.isSeenBefore(fetchResult.getFetchedUrl())) {
             throw new RedirectException(Level.DEBUG, "Redirect page: " + curURL + " has already been seen");
           }
           curURL.setURL(fetchResult.getFetchedUrl());
@@ -392,8 +414,22 @@ public class WebCrawler implements Runnable {
         List<WebURL> toSchedule = new ArrayList<>();
         int maxCrawlDepth = myController.getConfig().getMaxDepthOfCrawling();
         for (WebURL webURL : parseData.getOutgoingUrls()) {
+        	
+          try{
+        	  String url = webURL.getURL();
+        	  String linktype = url.substring(url.lastIndexOf('.')+1);
+        	  if(!linktype.contains("/"))
+        	  {
+        		  crawlstat.incLinkType(linktype);
+        	  }
+          }catch(Exception e)
+          	{
+        	  logger.error("{}",e.getMessage());
+          	}	
+          
           webURL.setParentDocid(curURL.getDocid());
           webURL.setParentUrl(curURL.getURL());
+          
           int newdocid = docIdServer.getDocId(webURL.getURL());
           if (newdocid > 0) {
             // This is not the first time that this Url is visited. So, we set the depth to a negative number.
@@ -405,7 +441,7 @@ public class WebCrawler implements Runnable {
             if ((maxCrawlDepth == -1) || (curURL.getDepth() < maxCrawlDepth)) {
               if (shouldVisit(page, webURL)) {
                 if (robotstxtServer.allows(webURL)) {
-                  webURL.setDocid(docIdServer.getNewDocID(webURL.getURL()));
+                  webURL.setDocid(docIdServer.getNewDocID(webURL.getURL()));                  
                   toSchedule.add(webURL);
                 } else {
                   logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
