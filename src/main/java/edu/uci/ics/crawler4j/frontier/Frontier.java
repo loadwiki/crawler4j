@@ -201,7 +201,10 @@ public class Frontier extends Configurable {
   
   public long getInProcessPagesDBIOTime()
   {
-	  return inProcessPages.getInProcessPagesDBIOTime();
+	  if(inProcessPages!=null)
+		  return inProcessPages.getInProcessPagesDBIOTime();
+	  else
+		  return 0;
   }
   
 }

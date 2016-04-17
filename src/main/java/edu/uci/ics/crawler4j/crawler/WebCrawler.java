@@ -20,6 +20,7 @@ package edu.uci.ics.crawler4j.crawler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
@@ -126,6 +127,8 @@ public class WebCrawler implements Runnable {
     this.parser = new Parser(crawlController.getConfig());
     this.myController = crawlController;
     this.isWaitingForNewURLs = false;
+    
+ //   logger.info("\tcrawlter {} init",id);
 
   }
 
@@ -263,18 +266,29 @@ public class WebCrawler implements Runnable {
   public void run() {
     onStart();
     while (true) {
+      int count = 0;
+      logger.info("\tcrawler {} loops count {}",myId,count);
+      count++;
       List<WebURL> assignedURLs = new ArrayList<>(50);
       isWaitingForNewURLs = true;
       frontier.getNextURLs(50, assignedURLs);
       isWaitingForNewURLs = false;
       if (assignedURLs.isEmpty()) {
         if (frontier.isFinished()) {
+        	
+         synchronized(frontier)
+         {
           
-          logger.info("\tcrawler {} is finished,exectime",myId,crawlstat.getExecTime());
-          crawlstat.pLinkTypeTable();
-          crawlstat.pResultCode();
-          crawlstat.pNetworkTime();
-          return;
+	          logger.info("\tcrawler {} is finished,exectime {}",myId,crawlstat.getExecTime());
+	          crawlstat.pLinkTypeTable();
+	          crawlstat.pResultCode();
+	          crawlstat.pFetchPageTime();
+	          crawlstat.pFetchContentTime();
+	          crawlstat.pParsePageTime();
+	          
+	          return;
+         }
+         
         }
         try {
           Thread.sleep(3000);
@@ -284,13 +298,19 @@ public class WebCrawler implements Runnable {
       } else {
         for (WebURL curURL : assignedURLs) {
           if (myController.isShuttingDown()) {
-            logger.info("Exiting because of controller shutdown.");
-            
-            crawlstat.pLinkTypeTable();
-            crawlstat.pResultCode();
-            crawlstat.pNetworkTime();
-            
-            return;
+        	  
+        	synchronized(frontier)
+        	{
+	            logger.info("Exiting because of controller shutdown.");
+	            
+	            crawlstat.pLinkTypeTable();
+	            crawlstat.pResultCode();
+	            crawlstat.pFetchPageTime();
+	            crawlstat.pFetchContentTime();
+	            crawlstat.pParsePageTime();
+		          
+	            return;
+        	}
           }
           if (curURL != null) {
             curURL = handleUrlBeforeProcess(curURL);
@@ -339,7 +359,9 @@ public class WebCrawler implements Runnable {
         throw new Exception("Failed processing a NULL url !?");
       }
       
+      long timestamp = System.currentTimeMillis();
       fetchResult = pageFetcher.fetchPage(curURL);
+      crawlstat.incFetchPageTime(System.currentTimeMillis()-timestamp);
       
       int statusCode = fetchResult.getStatusCode();
       handlePageStatusCode(curURL, statusCode, EnglishReasonPhraseCatalog.INSTANCE
@@ -404,11 +426,16 @@ public class WebCrawler implements Runnable {
           curURL.setDocid(docIdServer.getNewDocID(fetchResult.getFetchedUrl()));
         }
 
+        long timestamp2 = System.currentTimeMillis();
         if (!fetchResult.fetchContent(page)) {
+          crawlstat.incFetchContentTime(System.currentTimeMillis()-timestamp2);
           throw new ContentFetchException();
         }
-
+        crawlstat.incFetchContentTime(System.currentTimeMillis()-timestamp2);
+        
+        long timestamp3 = System.currentTimeMillis();
         parser.parse(page, curURL.getURL());
+        crawlstat.incParsePageTime(System.currentTimeMillis()-timestamp3);
 
         ParseData parseData = page.getParseData();
         List<WebURL> toSchedule = new ArrayList<>();
@@ -416,12 +443,17 @@ public class WebCrawler implements Runnable {
         for (WebURL webURL : parseData.getOutgoingUrls()) {
         	
           try{
+        	  Pattern filter = Pattern.compile(".*[/|%|?|=].*$");
         	  String url = webURL.getURL();
         	  String linktype = url.substring(url.lastIndexOf('.')+1);
-        	  if(!linktype.contains("/"))
-        	  {
-        		  crawlstat.incLinkType(linktype);
+        	  if(filter.matcher(linktype).matches())
+        	  {  
+        		  crawlstat.incLinkType("dynamic resource");
         	  }
+        	  else
+        		  crawlstat.incLinkType(linktype);
+
+        	  
           }catch(Exception e)
           	{
         	  logger.error("{}",e.getMessage());

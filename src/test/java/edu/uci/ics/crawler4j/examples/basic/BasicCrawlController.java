@@ -45,13 +45,13 @@ public class BasicCrawlController {
      * crawlStorageFolder is a folder where intermediate crawl data is
      * stored.
      */
-    String crawlStorageFolder =	"E:/tmp/crawlData/BasicCrawler/";
+    String crawlStorageFolder =	"/Users/load/data/crawl/";
 
     /*
      * numberOfCrawlers shows the number of concurrent threads that should
      * be initiated for crawling.
      */
-    int numberOfCrawlers = 2;
+    int numberOfCrawlers = 4;
 
     CrawlConfig config = new CrawlConfig();
 
@@ -61,13 +61,13 @@ public class BasicCrawlController {
      * Be polite: Make sure that we don't send more than 1 request per
      * second (1000 milliseconds between requests).
      */
-    config.setPolitenessDelay(1000);
+//    config.setPolitenessDelay(1000);
 
     /*
      * You can set the maximum crawl depth here. The default value is -1 for
      * unlimited depth
      */
-    config.setMaxDepthOfCrawling(2);
+    config.setMaxDepthOfCrawling(4);
 
     /*
      * You can set the maximum number of pages to crawl. The default value
@@ -112,14 +112,14 @@ public class BasicCrawlController {
      * URLs that are fetched and then the crawler starts following links
      * which are found in these pages
      */
-    controller.addSeed("http://www.iteye.com/");
+    controller.addSeed("http://www.csdn.net/");
     /*
      * Start the crawl. This is a blocking operation, meaning that your code
      * will reach the line after this only when crawling is finished.
      */
-    controller.start(BasicCrawler.class, numberOfCrawlers);
+    controller.start(BasicCrawler.class, numberOfCrawlers);		
     
-    logger.info("\t docID server iotime {}",controller.getDocIdServer().getdocServerIOTime()/1000);
+    logger.info("\t docID server iotime {}",controller.getDocIdServer().getdocServerIOTime());
     logger.info("\t InProcessPagesDBIOTime {}",controller.getFrontier().getInProcessPagesDBIOTime());
 
   }

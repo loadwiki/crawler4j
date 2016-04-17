@@ -19,7 +19,9 @@ public class WebCrawlerStat {
 	  private HashMap<String,Integer>	linkTypeTable = new HashMap<String,Integer>();
 	  
 	  private long startTime = System.currentTimeMillis();
-	  private long networktime;
+	  private long fetchpagetime;
+	  private long fetchcontenttime;
+	  private long parsepagetime;
 	  private long retrytime;
 	  
 	  private HashMap<Integer,Integer>	httpResultCode = new HashMap<Integer,Integer>();
@@ -89,18 +91,47 @@ public class WebCrawlerStat {
 	  {
 		  for(Map.Entry<String,Integer> entry :linkTypeTable.entrySet())
 		  {
-			  logger.info("\tcrawler {} link type{},total count{}",id,entry.getKey(),entry.getValue());
+			  logger.info("\tcrawler {} link type {},total count {}",id,entry.getKey(),entry.getValue());
 		  }
 	  }
 	  
-	  public void incNetworkTime(long term)
+	  public void incFetchPageTime(long term)
 	  {
-		  networktime += term;
+		  fetchpagetime += term;
+	  } 
+	  public long getFetchPageTime()
+	  {
+		  return fetchpagetime;
+	  }
+	  public void pFetchPageTime()
+	  {
+		  logger.info("\tcrawler {}  fetch page time {}",id,fetchpagetime);
+	  }	  
+
+	  public void incFetchContentTime(long term)
+	  {
+		  fetchcontenttime += term;
+	  }
+	  public long getFetchContentTime(long term)
+	  {
+		  return fetchcontenttime;
+	  }
+	  public void pFetchContentTime()
+	  {
+		  logger.info("\tcrawler {}  fetch content time {}",id,fetchcontenttime);		  
 	  }
 	  
-	  public long getNetworkTime()
+	  public void incParsePageTime(long term)
 	  {
-		  return networktime;
+		  parsepagetime += term;
+	  }
+	  public long getParsePageTime(long term)
+	  {
+		  return parsepagetime;
+	  }
+	  public void pParsePageTime()
+	  {
+		  logger.info("\tcrawler {}  parse page time {}",id,parsepagetime);		  
 	  }
 	  
 	  
@@ -121,11 +152,8 @@ public class WebCrawlerStat {
 	  {
 		  for(Map.Entry<Integer,Integer> entry:httpResultCode.entrySet())
 		  {
-			  logger.info("\tcrawler {} result code {},total count{}",id,entry.getKey(),entry.getValue());
+			  logger.info("\tcrawler {} result code {}, total count {}",id,entry.getKey(),entry.getValue());
 		  }
 	  }
-	  public void pNetworkTime()
-	  {
-		  logger.info("\tcrawler {}  networktime {}",id,networktime/1000);
-	  }
+
 }
